@@ -80,29 +80,7 @@ jobs:
             exit 1
           }
 
-          # bgfx scripts
-          if (Test-Path "bgfx\scripts") {
-            Copy-Item `
-              "bgfx\scripts" `
-              "release\scripts" `
-              -Recurse
-          }
 
-          # bgfx examples
-          if (Test-Path "bgfx\examples") {
-            Copy-Item `
-              "bgfx\examples" `
-              "release\examples" `
-              -Recurse
-          }
-
-          # bgfx tools
-          if (Test-Path "bgfx\tools") {
-            Copy-Item `
-              "bgfx\tools" `
-              "release\tools" `
-              -Recurse
-          }
 
           # Important source/build metadata
           Copy-Item "bgfx\LICENSE" "release\LICENSE"
