@@ -54,58 +54,67 @@ jobs:
       - name: Prepare package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path release\bin | Out-Null
-          New-Item -ItemType Directory -Force -Path release\lib | Out-Null
-          New-Item -ItemType Directory -Force -Path release\include | Out-Null
-          New-Item -ItemType Directory -Force -Path release\bindings\cs | Out-Null
+          New-Item -ItemType Directory -Force -Path release | Out-Null
 
-          $build = "bgfx\.build\win64_vs2022"
-          $bin = "$build\bin"
-          $lib = "$build\lib"
+          # Entire generated .build directory
+          Copy-Item `
+            "bgfx\.build" `
+            "release\.build" `
+            -Recurse
 
-          # Find DLL
-          $dll = Get-ChildItem $bin -Filter "*.dll" -Recurse |
-            Where-Object { $_.Name -like "*bgfx*" } |
-            Select-Object -First 1
-
-          if (-not $dll) {
-            Write-Error "bgfx DLL was not found."
-            exit 1
-          }
-
-          # Find LIB
-          $implib = Get-ChildItem $lib -Filter "*.lib" -Recurse |
-            Where-Object { $_.Name -like "*bgfx*" } |
-            Select-Object -First 1
-
-          if (-not $implib) {
-            Write-Error "bgfx LIB was not found."
-            exit 1
-          }
-
-          Copy-Item $dll.FullName "release\bin\bgfx.dll"
-          Copy-Item $implib.FullName "release\lib\bgfx.lib"
-
-          # C/C++ headers
-          Copy-Item "bgfx\include\bgfx" "release\include" -Recurse
+          # All bgfx C/C++ headers
+          Copy-Item `
+            "bgfx\include" `
+            "release\include" `
+            -Recurse
 
           # Official C# bindings
-          if (Test-Path "bgfx\bindings\cs") {
-            Copy-Item "bgfx\bindings\cs\*" `
-              "release\bindings\cs" `
+          if (Test-Path "bgfx\bindings") {
+            Copy-Item `
+              "bgfx\bindings" `
+              "release\bindings" `
               -Recurse
           }
           else {
-            Write-Error "C# bindings directory was not found."
+            Write-Error "bgfx bindings directory was not found."
             exit 1
           }
+
+          # bgfx scripts
+          if (Test-Path "bgfx\scripts") {
+            Copy-Item `
+              "bgfx\scripts" `
+              "release\scripts" `
+              -Recurse
+          }
+
+          # bgfx examples
+          if (Test-Path "bgfx\examples") {
+            Copy-Item `
+              "bgfx\examples" `
+              "release\examples" `
+              -Recurse
+          }
+
+          # bgfx tools
+          if (Test-Path "bgfx\tools") {
+            Copy-Item `
+              "bgfx\tools" `
+              "release\tools" `
+              -Recurse
+          }
+
+          # Important source/build metadata
+          Copy-Item "bgfx\LICENSE" "release\LICENSE"
+          Copy-Item "bgfx\README.md" "release\README.md"
 
       - name: Create archive
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path release\* `
-            -DestinationPath bgfx-windows-x64.zip
+            -Path "release\*" `
+            -DestinationPath "bgfx-windows-x64.zip" `
+            -CompressionLevel Optimal
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
