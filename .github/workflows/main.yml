@@ -1,16 +1,8 @@
+
 name: Build bgfx Windows
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Release tag"
-        required: true
-        default: "bgfx-latest"
-      release_name:
-        description: "Release name"
-        required: true
-        default: "bgfx Windows x64"
 
 permissions:
   contents: write
@@ -59,20 +51,21 @@ jobs:
             /p:Configuration=Release ^
             /p:Platform=x64
 
-      - name: Prepare release files
+      - name: Prepare package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release\bin | Out-Null
           New-Item -ItemType Directory -Force -Path release\lib | Out-Null
           New-Item -ItemType Directory -Force -Path release\include | Out-Null
+          New-Item -ItemType Directory -Force -Path release\bindings\cs | Out-Null
 
-          $build = "bgfx\.build\win64_vs2022\bin"
-          $lib = "bgfx\.build\win64_vs2022\lib"
+          $build = "bgfx\.build\win64_vs2022"
+          $bin = "$build\bin"
+          $lib = "$build\lib"
 
-          $dll = Get-ChildItem $build -Filter "bgfx-shared-libRelease.dll" -Recurse |
-            Select-Object -First 1
-
-          $implib = Get-ChildItem $lib -Filter "bgfx-shared-libRelease.lib" -Recurse |
+          # Find DLL
+          $dll = Get-ChildItem $bin -Filter "*.dll" -Recurse |
+            Where-Object { $_.Name -like "*bgfx*" } |
             Select-Object -First 1
 
           if (-not $dll) {
@@ -80,15 +73,32 @@ jobs:
             exit 1
           }
 
+          # Find LIB
+          $implib = Get-ChildItem $lib -Filter "*.lib" -Recurse |
+            Where-Object { $_.Name -like "*bgfx*" } |
+            Select-Object -First 1
+
           if (-not $implib) {
             Write-Error "bgfx LIB was not found."
             exit 1
           }
 
-          Copy-Item $dll.FullName release\bin\bgfx.dll
-          Copy-Item $implib.FullName release\lib\bgfx.lib
+          Copy-Item $dll.FullName "release\bin\bgfx.dll"
+          Copy-Item $implib.FullName "release\lib\bgfx.lib"
 
-          Copy-Item "bgfx\include\bgfx" release\include -Recurse
+          # C/C++ headers
+          Copy-Item "bgfx\include\bgfx" "release\include" -Recurse
+
+          # Official C# bindings
+          if (Test-Path "bgfx\bindings\cs") {
+            Copy-Item "bgfx\bindings\cs\*" `
+              "release\bindings\cs" `
+              -Recurse
+          }
+          else {
+            Write-Error "C# bindings directory was not found."
+            exit 1
+          }
 
       - name: Create archive
         shell: pwsh
@@ -106,38 +116,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag }}
-          name: ${{ inputs.release_name }}
+          tag_name: bgfx-windows-x64-${{ github.run_number }}
+          name: bgfx Windows x64 build ${{ github.run_number }}
           generate_release_notes: true
-          files: |
-            bgfx-windows-x64.zip
-
-Po uruchomieniu **Actions → Build bgfx Windows → Run workflow** podajesz np.:
-
-```text
-release_tag:
-bgfx-2026.10.03
-
-release_name:
-bgfx Windows x64
-````
-
-Release będzie miał:
-
-```text
-bgfx-windows-x64.zip
-```
-
-a w środku:
-
-```text
-release/
-├── bin/
-│   └── bgfx.dll
-├── lib/
-│   └── bgfx.lib
-└── include/
-    └── bgfx/
-        ├── bgfx.h
-        ├── bgfxplatform.h
-        └── ...
+          files: bgfx-windows-x64.zip
